@@ -153,6 +153,7 @@ def set_model(init_learning_rate, dropout_prob):
     for i in range(num_hidden_layers):
         # Adds a densely-connected layer  to the model:
         model.add(keras.layers.Dense(other_layer_size, activation='relu'))
+
     ### Ajouter ici une ligne  pour gérer le sur-apprentissage
     # Couche de Sortie (avec fonction Softmax):
     model.add(keras.layers.Dense(2, activation='softmax'))
@@ -194,7 +195,7 @@ normalize_number(test, header_df)
 ###Essayez Différents jeu de paramètre pour réduire le sur-appentissage
 init_learning_rate = 0.003
 dropout_prob = 0.5
-check_epochs = 100
+check_epochs = 20
 pourcentage_validation = 0.2
 
 #A partir des données Train, on sépare features (X)  et labels "Survived"
@@ -233,15 +234,19 @@ ax2.plot(hist.history['loss'], color= 'b')
 ax1.set_xlabel('epochs')
 ax1.set_ylabel('Validation data Error', color='g')
 ax2.set_ylabel('Training Data Error', color='b')
-plt.show()
+#plt.show()
 
 
 ## Cross validation
 # sss => sklearn StratifiedShuffleSplit
 def run_cross_validation(model, name, sss, acc_dict, loss_dict):
     loop = 1
+    lst_col = list(train.columns.values)
+    lst_col.remove('Survived')
+    X = train[lst_col]
+    y = train['Survived']
+    position_validation_data = int(train.shape[0] * (1-pourcentage_validation))
     for train_index, test_index in sss.split(X, y):
-        # X_train, X_val =
         X_train = X[lst_col][:position_validation_data].values
         X_val = X[lst_col][position_validation_data:].values
 
@@ -302,19 +307,19 @@ print(log.values)
 ## Prediction
 ###A vous de completer les 3 lignes ci-dessous, sans oublier la normalisation !
 ### Analyser les résultats du bloc précédent pour choisir le meilleur paramètre
-# best_model = model_dict[ ??? ]
+best_model = model_dict['lr_0.01_do_0.05']
 # X = ???
 # y = ???
 
 y_hot = np.transpose([1-y, y])
 
 #Apprentissage sur toutes les données, avec le modèle sélectionné
-best_model.fit(X,y_hot, epochs=epochs, batch_size=32,verbose=False)
-print(pd.DataFrame(best_model.evaluate(X, y_hot, batch_size=32,verbose=False),index=model.metrics_names))
+best_model.fit(X, y_hot, epochs=epochs, batch_size=32, verbose=False)
+print(pd.DataFrame(best_model.evaluate(X, y_hot, batch_size=32, verbose=False), index=model.metrics_names))
 
 #Inférence des données du fichier test et Construction du fichier à envoyer à Kaggle
-prediction=best_model.predict(test.values, batch_size=32)
-results=pd.DataFrame(np.argmax(prediction,axis=1), index = finalfile_index, columns=['Survived'])
+prediction = best_model.predict(test.values, batch_size=32)
+results = pd.DataFrame(np.argmax(prediction, axis=1), index=finalfile_index, columns=['Survived'])
 results.to_csv('resultats.csv')
 print(results.sum())
 results.describe()
