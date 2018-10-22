@@ -234,7 +234,8 @@ ax2.plot(hist.history['loss'], color= 'b')
 ax1.set_xlabel('epochs')
 ax1.set_ylabel('Validation data Error', color='g')
 ax2.set_ylabel('Training Data Error', color='b')
-#plt.show()
+# Désactivation du graphique car il bloquait le process
+# plt.show()
 
 
 ## Cross validation
@@ -296,7 +297,8 @@ for init_learning_rate in lst_init_learning_rate:
         model = set_model(init_learning_rate,dropout_prob)
         #Ajout du modèle au dico pour sélectionner le meilleur dans le suivant
         model_dict[name]=model
-        run_cross_validation(model, name, sss, acc_dict, loss_dict)
+        # Je commente car le process est assez long
+        # run_cross_validation(model, name, sss, acc_dict, loss_dict)
         # Calcul de la performance du modèle comme moyenne pour chaque itération dans cross-validation
         for clf in acc_dict:
             acc_dict[clf] = acc_dict[clf] / n_splits
@@ -308,8 +310,8 @@ print(log.values)
 ###A vous de completer les 3 lignes ci-dessous, sans oublier la normalisation !
 ### Analyser les résultats du bloc précédent pour choisir le meilleur paramètre
 best_model = model_dict['lr_0.01_do_0.05']
-# X = ???
-# y = ???
+# X = test.values[0::, 1::]
+# y = test.values[0::, 0]
 
 y_hot = np.transpose([1-y, y])
 
