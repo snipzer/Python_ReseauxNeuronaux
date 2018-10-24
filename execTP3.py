@@ -37,16 +37,13 @@ def get_columns_metadata(df, lst_cols):
 
 
 def normalize_value(value, header_df, col):
-    return 2 * ((value - header_df.mean[col])/(value.max() - value.min()))
+    return 2 * ((value - header_df['mean'][col])/(header_df['max'][col] - header_df['min'][col]))
 
 
 def normalize_number(df, header_df):
     for col in df.columns:
         if col in header_df.index:
-            if df[col].isnull and isinstance(df[col], float) or isinstance(df[col], int):
-                df[col] = normalize_value(df[col], header_df, col)
-            else:
-                df[col] = df[col]
+            df[col] = normalize_value(df[col], header_df, col)
 
 
 def normalize_age(full_data):
@@ -142,24 +139,23 @@ def show_age(full_data, train):
     train['CategoricalAge'] = pd.qcut(train['Age'], 5)
     print(train[['CategoricalAge', 'Survived']].groupby(['CategoricalAge'], as_index=False).mean())
 
+
 def set_model(init_learning_rate, dropout_prob):
     # Architecture du réseau
     model = keras.Sequential()
     model.add(keras.layers.Dense(first_layer_size, activation='relu'))
 
-    ### Ajouter ici une ligne  pour gérer le sur-apprentissage
 
     # Couches cachées (Hidden Layers)
     for i in range(num_hidden_layers):
         # Adds a densely-connected layer  to the model:
         model.add(keras.layers.Dense(other_layer_size, activation='relu'))
+        model.add(keras.layers.Dropout(dropout_prob, noise_shape=None, seed=None))
 
-    ### Ajouter ici une ligne  pour gérer le sur-apprentissage
     # Couche de Sortie (avec fonction Softmax):
     model.add(keras.layers.Dense(2, activation='softmax'))
     global_step = tf.Variable(0, trainable=False)
     learning_rate = tf.train.exponential_decay(init_learning_rate, global_step, 1000, 0.96, staircase=True)
-
 
     ### Ici vous pouvez essayer différents algos de descentes de gradients
     #Définiton de l'optimizer  en charge de la Gradient Descent, de la fonction de coût et de la métrique.
@@ -238,21 +234,16 @@ ax2.set_ylabel('Training Data Error', color='b')
 # plt.show()
 
 
-## Cross validation
+# Cross validation
 # sss => sklearn StratifiedShuffleSplit
 def run_cross_validation(model, name, sss, acc_dict, loss_dict):
     loop = 1
-    lst_col = list(train.columns.values)
-    lst_col.remove('Survived')
-    X = train[lst_col]
-    y = train['Survived']
-    position_validation_data = int(train.shape[0] * (1-pourcentage_validation))
     for train_index, test_index in sss.split(X, y):
-        X_train = X[lst_col][:position_validation_data].values
-        X_val = X[lst_col][position_validation_data:].values
+        X_train = X[train_index]
+        X_val = X[test_index]
 
-        y_train = np.transpose([1-y[:position_validation_data], y[:position_validation_data]])
-        y_val = np.transpose([1-y[position_validation_data:], y[position_validation_data:]])
+        y_train = np.transpose([1-y[train_index], y[train_index]])
+        y_val = np.transpose([1-y[test_index], y[test_index]])
 
         # Apprentissage et évaluation
         hist = History()
@@ -271,8 +262,8 @@ def run_cross_validation(model, name, sss, acc_dict, loss_dict):
         loop = loop + 1
 
 
-## HyperParametrage
-#Données utilisées pour la méthode split de l'objet StratifiedShuffleSplit
+# HyperParametrage
+# Données utilisées pour la méthode split de l'objet StratifiedShuffleSplit
 X = train.values[0::, 1::]
 y = train.values[0::, 0]
 
@@ -287,18 +278,17 @@ log = pd.DataFrame(columns=log_cols)
 
 # Boucle sur des valeurs de init_learning_rate et de dropout_prob
 for init_learning_rate in lst_init_learning_rate:
-    for dropout_prob in  lst_dropout_prob :
-        #Initialisation des dictionnaires utilisés dans la cross validation
+    for dropout_prob in lst_dropout_prob:
+        # Initialisation des dictionnaires utilisés dans la cross validation
         acc_dict = {}
         loss_dict = {}
-        #Construction du nom du modèle, en fonction des paramètres
-        name="lr_%s_do_%s"%(init_learning_rate,dropout_prob)
-        #Création de l'objet modèle
-        model = set_model(init_learning_rate,dropout_prob)
-        #Ajout du modèle au dico pour sélectionner le meilleur dans le suivant
-        model_dict[name]=model
-        # Je commente car le process est assez long
-        # run_cross_validation(model, name, sss, acc_dict, loss_dict)
+        # Construction du nom du modèle, en fonction des paramètres
+        name="lr_%s_do_%s"%(init_learning_rate, dropout_prob)
+        # Création de l'objet modèle
+        model = set_model(init_learning_rate, dropout_prob)
+        # Ajout du modèle au dico pour sélectionner le meilleur dans le suivant
+        model_dict[name] = model
+        run_cross_validation(model, name, sss, acc_dict, loss_dict)
         # Calcul de la performance du modèle comme moyenne pour chaque itération dans cross-validation
         for clf in acc_dict:
             acc_dict[clf] = acc_dict[clf] / n_splits
@@ -306,20 +296,19 @@ for init_learning_rate in lst_init_learning_rate:
             log = log.append(log_entry)
 print(log.values)
 
-## Prediction
-###A vous de completer les 3 lignes ci-dessous, sans oublier la normalisation !
-### Analyser les résultats du bloc précédent pour choisir le meilleur paramètre
-best_model = model_dict['lr_0.01_do_0.05']
-# X = test.values[0::, 1::]
-# y = test.values[0::, 0]
+# Prediction
+best_model = model_dict['lr_0.003_do_0.05']
+X = train.values[0::, 1::]
+y = train.values[0::, 0]
 
 y_hot = np.transpose([1-y, y])
 
-#Apprentissage sur toutes les données, avec le modèle sélectionné
+# Apprentissage sur toutes les données, avec le modèle sélectionné
 best_model.fit(X, y_hot, epochs=epochs, batch_size=32, verbose=False)
 print(pd.DataFrame(best_model.evaluate(X, y_hot, batch_size=32, verbose=False), index=model.metrics_names))
 
-#Inférence des données du fichier test et Construction du fichier à envoyer à Kaggle
+
+# Inférence des données du fichier test et Construction du fichier à envoyer à Kaggle
 prediction = best_model.predict(test.values, batch_size=32)
 results = pd.DataFrame(np.argmax(prediction, axis=1), index=finalfile_index, columns=['Survived'])
 results.to_csv('resultats.csv')
